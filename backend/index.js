@@ -1,40 +1,31 @@
 // backend/index.js
-
 require('dotenv').config();
 const express = require('express');
-const { JsonRpcProvider } = require("ethers");
+const cors = require('cors'); // Allow cross-origin requests from the frontend
+const bodyParser = require('body-parser');
+
+// Import any additional libraries (e.g., ethers) and your smart contract logic here.
+const { ethers } = require("ethers");
 const fs = require('fs');
 const path = require('path');
-const ethers = require("ethers");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
-// Parse JSON request bodies
-app.use(express.json());
+// Allow requests from your frontend (e.g., http://localhost:3000)
+app.use(cors());
+app.use(bodyParser.json());
 
-console.log("RPC_URL:", process.env.RPC_URL);
-
-
-// Set up ethers provider
+// --- Example: Connect to your deployed smart contract ---
 const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
-
-// Create a wallet instance using a private key
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-
-// Load the contract's ABI
-// Adjust the path based on where your compiled contract JSON is located
 const contractArtifactPath = path.join(__dirname, '..', 'artifacts', 'contracts', 'MessageStorage.sol', 'MessageStorage.json');
 const contractArtifact = JSON.parse(fs.readFileSync(contractArtifactPath, 'utf8'));
 const contractABI = contractArtifact.abi;
-
-// Contract address should be set in your .env file after deployment
 const contractAddress = process.env.CONTRACT_ADDRESS;
-
-// Create a contract instance connected to the wallet
 const messageStorageContract = new ethers.Contract(contractAddress, contractABI, wallet);
 
-// API Endpoint: Get the stored message
+// Example API Endpoint: Retrieve message from smart contract
 app.get('/message', async(req, res) => {
     try {
         const message = await messageStorageContract.retrieveMessage();
@@ -45,7 +36,7 @@ app.get('/message', async(req, res) => {
     }
 });
 
-// API Endpoint: Store a new message (POST)
+// Example API Endpoint: Store message to smart contract
 app.post('/message', async(req, res) => {
     const { newMessage } = req.body;
     if (!newMessage) {
@@ -53,7 +44,6 @@ app.post('/message', async(req, res) => {
     }
     try {
         const tx = await messageStorageContract.storeMessage(newMessage);
-        // Wait for the transaction to be mined
         await tx.wait();
         res.json({ success: true, txHash: tx.hash });
     } catch (error) {
@@ -62,7 +52,7 @@ app.post('/message', async(req, res) => {
     }
 });
 
-// Start the Express server
+// Start the backend server
 app.listen(PORT, () => {
     console.log(`Backend server is running on port ${PORT}`);
 });
